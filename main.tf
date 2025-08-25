@@ -1,12 +1,12 @@
- provider "aws" {
+provider "aws" {
   region = var.aws_region
- }
+}
 
- locals {
+locals {
   cluster_name = "${var.cluster_name}-${var.env_name}"
- }
- resource "aws_iam_role" "ms-cluster" {
-  name = local.cluster_name
+}
+resource "aws_iam_role" "ms-cluster" {
+  name               = local.cluster_name
   assume_role_policy = <<POLICY
  {
   "Version": "2012-10-17",
@@ -21,15 +21,15 @@
   ]
  }
  POLICY
- }
- resource "aws_iam_role_policy_attachment" "ms-cluster-AmazonEKSClusterPolicy" {
+}
+resource "aws_iam_role_policy_attachment" "ms-cluster-AmazonEKSClusterPolicy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
   role       = aws_iam_role.ms-cluster.name
- }
+}
 
-  resource "aws_security_group" "ms-cluster" {
-  name        = local.cluster
-  vpc_id      = var.vpc_id
+resource "aws_security_group" "ms-cluster" {
+  name   = local.cluster_name
+  vpc_id = var.vpc_id
   egress {
     from_port   = 0
     to_port     = 0
@@ -39,9 +39,9 @@
   tags = {
     Name = "ms-up-running"
   }
- }
+}
 
-  resource "aws_eks_cluster" "ms-up-running" {
+resource "aws_eks_cluster" "ms-up-running" {
   name     = local.cluster_name
   role_arn = aws_iam_role.ms-cluster.arn
   vpc_config {
@@ -51,11 +51,11 @@
   depends_on = [
     aws_iam_role_policy_attachment.ms-cluster-AmazonEKSClusterPolicy
   ]
- }
+}
 
-  # Node Role
- resource "aws_iam_role" "ms-node" {
-  name = "${local.cluster_name}.node"
+# Node Role
+resource "aws_iam_role" "ms-node" {
+  name               = "${local.cluster_name}.node"
   assume_role_policy = <<POLICY
  {
   "Version": "2012-10-17",
@@ -70,24 +70,24 @@
   ]
  }
  POLICY
- }
- # Node Policy
- resource "aws_iam_role_policy_attachment" "ms-node-AmazonEKSWorkerNodePolicy" {
+}
+# Node Policy
+resource "aws_iam_role_policy_attachment" "ms-node-AmazonEKSWorkerNodePolicy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
   role       = aws_iam_role.ms-node.name
- }
- resource "aws_iam_role_policy_attachment" "ms-node-AmazonEKS_CNI_Policy" {
+}
+resource "aws_iam_role_policy_attachment" "ms-node-AmazonEKS_CNI_Policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
   role       = aws_iam_role.ms-node.name
- }
- [...]
- resource "aws_iam_role_policy_attachment" "ms-node-ContainerRegistryReadOnly" {
- [...]
+}
+
+resource "aws_iam_role_policy_attachment" "ms-node-AmazonEC2ContainerRegistryReadOnly" {
+
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   role       = aws_iam_role.ms-node.name
- }
+}
 
-  resource "aws_eks_node_group" "ms-node-group" {
+resource "aws_eks_node_group" "ms-node-group" {
   cluster_name    = aws_eks_cluster.ms-up-running.name
   node_group_name = "microservices"
   node_role_arn   = aws_iam_role.ms-node.arn
@@ -104,10 +104,10 @@
     aws_iam_role_policy_attachment.ms-node-AmazonEKS_CNI_Policy,
     aws_iam_role_policy_attachment.ms-node-AmazonEC2ContainerRegistryReadOnly,
   ]
- }
+}
 
-  # Create a kubeconfig file based on the cluster that has been created
- resource "local_file" "kubeconfig" {
+# Create a kubeconfig file based on the cluster that has been created
+resource "local_file" "kubeconfig" {
   content  = <<KUBECONFIG_END
  apiVersion: v1
  clusters:- cluster:
@@ -133,4 +133,4 @@
         - "${aws_eks_cluster.ms-up-running.name}"
     KUBECONFIG_END
   filename = "kubeconfig"
- }
+}
